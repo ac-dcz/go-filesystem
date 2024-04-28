@@ -17,6 +17,7 @@ func NewFileInfo(fhash, fname, fpath string, fsize int64) *FileInfo {
 		FHash:        fhash,
 		FName:        fname,
 		Fsize:        fsize,
+		LocalPath:    fpath,
 		UploadTS:     time.Now().Unix(),
 		LastModifyTS: time.Now().Unix(),
 		Status:       0,

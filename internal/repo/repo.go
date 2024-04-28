@@ -92,8 +92,9 @@ func SelectFileInfo(fhash ...string) (infos []*fs.FileInfo, err error) {
 			return infos, err
 		}
 		info := &fs.FileInfo{}
-		err = row.Scan(&info.FHash, &info.FName, &info.LocalPath, &info.UploadTS, &info.LastModifyTS, &info.Status)
+		err = row.Scan(&info.FHash, &info.FName, &info.Fsize, &info.LocalPath, &info.UploadTS, &info.LastModifyTS, &info.Status)
 		if err != nil {
+			log.Println(err)
 			return infos, err
 		}
 		infos = append(infos, info)
@@ -112,8 +113,9 @@ func SelectAllFileInfo() (infos []*fs.FileInfo, err error) {
 	} else {
 		for rows.Next() {
 			info := &fs.FileInfo{}
-			err = rows.Scan(&info.FHash, &info.FName, &info.LocalPath, &info.UploadTS, &info.LastModifyTS, &info.Status)
+			err = rows.Scan(&info.FHash, &info.FName, &info.Fsize, &info.LocalPath, &info.UploadTS, &info.LastModifyTS, &info.Status)
 			if err != nil {
+				log.Println(err)
 				return infos, err
 			}
 			infos = append(infos, info)
