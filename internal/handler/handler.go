@@ -1,16 +1,39 @@
 package handler
 
 import (
+	"encoding/hex"
 	"go-fs/common/geeweb"
 	"go-fs/internal/repo"
 	"go-fs/internal/repo/fs"
+	"go-fs/internal/util"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 )
+
+func createFileInfo(f multipart.File, h *multipart.FileHeader) (*fs.FileInfo, error) {
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	sha1 := util.NewHasher().Add(data).Sum()
+	fsha1 := hex.EncodeToString(sha1)
+	info := fs.NewFileInfo(fsha1, h.Filename, StaticRoot, h.Size)
+	if err := repo.InsertFileInfo(info); err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return info, nil
+}
 
 const StaticRoot = "./static/"
 
@@ -29,11 +52,12 @@ func UploadHandle(c *geeweb.Context) {
 			}
 			defer save.Close()
 			io.Copy(save, f)
-			now := time.Now()
-			info := fs.NewFileInfo(h.Filename, StaticRoot, now.Unix(), now.Unix())
-			repo.FileMetaDB.Put(info.Hash(), *info) //存储文件元数据
-			c.String(http.StatusOK, "Successfuly upload")
-			log.Printf("upload file[%s] successfully\n", info.Hash())
+			if info, err := createFileInfo(f, h); err != nil {
+				http.Error(c.W, err.Error(), http.StatusInternalServerError)
+			} else {
+				c.String(http.StatusOK, "Successfuly upload")
+				log.Printf("upload file[%s] successfully\n", info.FHash)
+			}
 		}
 	}
 }
@@ -41,71 +65,82 @@ func UploadHandle(c *geeweb.Context) {
 // UpdateHandle: POST /file/update
 func UpdateHandle(c *geeweb.Context) {
 	hash, newname := c.PostForm("hash"), c.PostForm("newname")
-	if info, ok := repo.FileMetaDB.Get(hash); ok {
-		if err := os.Rename(info.Path+info.Name, info.Path+newname); err != nil {
-			http.Error(c.W, err.Error(), http.StatusInternalServerError)
-		} else {
-			info.LastModifyTS = time.Now().Unix()
-			info.Name = newname
-			repo.FileMetaDB.Put(hash, info)
-			c.String(http.StatusOK, "Successfully update")
+	if infos, err := repo.SelectFileInfo(hash); err == nil {
+		for _, info := range infos {
+			if err := os.Rename(info.LocalPath+info.FName, info.LocalPath+newname); err != nil {
+				http.Error(c.W, err.Error(), http.StatusInternalServerError)
+			} else {
+				info.LastModifyTS = time.Now().Unix()
+				info.FName = newname
+				repo.UpdateFileInfo(info)
+				c.String(http.StatusOK, "Successfully update")
+			}
 		}
 	} else {
-		c.String(http.StatusOK, "not found file hash %s\n", hash)
+		http.Error(c.W, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // QueryHandle: GET /file/query?hash=...
 func QueryHandle(c *geeweb.Context) {
 	hash := c.Query("hash")
-	if info, ok := repo.FileMetaDB.Get(hash); ok {
-		c.JSON(http.StatusOK, info)
+	if infos, err := repo.SelectFileInfo(hash); err == nil {
+		for _, info := range infos {
+			c.JSON(http.StatusOK, info)
+		}
 	} else {
-		c.String(http.StatusOK, "not found file hash %s\n", hash)
+		http.Error(c.W, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // DownloadHandle: GET /file/download?filename=...
 func DownloadHandle(c *geeweb.Context) {
 	hash := c.Query("hash")
-	if info, ok := repo.FileMetaDB.Get(hash); ok {
-		f, err := os.Open(info.Path + info.Name)
-		if os.IsNotExist(err) {
-			c.String(http.StatusOK, "%s not exists", hash)
-		} else if err != nil {
-			http.Error(c.W, err.Error(), http.StatusInternalServerError)
-		} else {
-			defer f.Close()
-			c.AddHeader("Content-Disposition", "attachment; filename="+url.QueryEscape(info.Name))
-			c.AddHeader("Content-Type", "application/octet-stream")
-			io.Copy(c.W, f)
+	if infos, err := repo.SelectFileInfo(hash); err == nil {
+		for _, info := range infos {
+			f, err := os.Open(info.LocalPath + info.FName)
+			if os.IsNotExist(err) {
+				c.String(http.StatusOK, "%s not exists", hash)
+			} else if err != nil {
+				http.Error(c.W, err.Error(), http.StatusInternalServerError)
+			} else {
+				defer f.Close()
+				c.AddHeader("Content-Disposition", "attachment; filename="+url.QueryEscape(info.FName))
+				c.AddHeader("Content-Type", "application/octet-stream")
+				io.Copy(c.W, f)
+			}
 		}
 	} else {
-		c.String(http.StatusOK, "not found file hash %s\n", hash)
+		http.Error(c.W, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // DeleteHandle: DELETE /file/delete?filename=...
 func DeleteHandle(c *geeweb.Context) {
 	hash := c.Query("hash")
-	if info, ok := repo.FileMetaDB.Get(hash); ok {
-		if err := os.Remove(info.Path + info.Name); err != nil {
-			http.Error(c.W, err.Error(), http.StatusInternalServerError)
-		} else {
-			c.String(http.StatusOK, "Successfully delete")
+	if infos, err := repo.SelectFileInfo(hash); err == nil {
+		for _, info := range infos {
+			info.LastModifyTS = time.Now().Unix()
+			info.Status = 2
+			if err := repo.UpdateFileInfo(info); err != nil {
+				http.Error(c.W, err.Error(), http.StatusInternalServerError)
+			} else {
+				c.String(http.StatusOK, "Successfully Delete File %s\n", hash)
+			}
 		}
 	} else {
-		c.String(http.StatusOK, "not found file hash %s\n", hash)
+		http.Error(c.W, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // FileListHandle: Get /file/list
 func FileListHandle(c *geeweb.Context) {
-	keys := repo.FileMetaDB.Keys()
 	h := make(geeweb.H)
-	for _, key := range keys {
-		if info, ok := repo.FileMetaDB.Get(key); ok {
-			h[key] = info
+	if infos, err := repo.SelectAllFileInfo(); err != nil {
+		http.Error(c.W, err.Error(), http.StatusInternalServerError)
+	} else {
+		for _, info := range infos {
+			h[info.FName] = info
 		}
 	}
 	c.JSON(http.StatusOK, h)

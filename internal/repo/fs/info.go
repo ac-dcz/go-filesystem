@@ -1,31 +1,25 @@
 package fs
 
-import (
-	"crypto/sha256"
-	"fmt"
-	"strconv"
-)
+import "time"
 
 type FileInfo struct {
-	FID          string
-	Name         string //文件名
+	FHash        string
+	FName        string //文件名
+	Fsize        int64
 	UploadTS     int64
 	LastModifyTS int64
-	Path         string
+	LocalPath    string
+	Status       int //文件当前状态(0可用/1禁用/2删除)
 }
 
-func NewFileInfo(name, path string, upts, lmts int64) *FileInfo {
+func NewFileInfo(fhash, fname, fpath string, fsize int64) *FileInfo {
 	info := &FileInfo{
-		Name:         name,
-		UploadTS:     upts,
-		LastModifyTS: lmts,
-		Path:         path,
+		FHash:        fhash,
+		FName:        fname,
+		Fsize:        fsize,
+		UploadTS:     time.Now().Unix(),
+		LastModifyTS: time.Now().Unix(),
+		Status:       0,
 	}
-	key := sha256.Sum256([]byte(strconv.Itoa(int(upts))))
-	info.FID = fmt.Sprintf("%x", key)
 	return info
-}
-
-func (info FileInfo) Hash() string {
-	return info.FID
 }
