@@ -1,0 +1,21 @@
+server:
+  host: localhost
+  port: 9999
+  network: tcp
+
+# mysql 已配置主从同步
+# salve to read
+readDB:
+  host: localhost
+  port: 3308
+  user: root
+  password: dcz.20001018
+  dbname: filedb
+
+# master to write
+writeDB:
+  host: localhost
+  port: 3307
+  user: root
+  password: dcz.20001018
+  dbname: filedb
