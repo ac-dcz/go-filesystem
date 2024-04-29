@@ -146,12 +146,17 @@ func FileListHandle(c *geeweb.Context) {
 	c.JSON(http.StatusOK, h)
 }
 
-// RegistryHandleFunc 注册路由
-func RegistryHandleFunc(group *geeweb.RouterGroup) {
+func registryFileHandler(group *geeweb.RouterGroup) {
 	group.AddRoute(http.MethodPost, "/file/upload", UploadHandle)
 	group.AddRoute(http.MethodPost, "/file/update", UpdateHandle)
 	group.AddRoute(http.MethodGet, "/file/query", QueryHandle)
 	group.AddRoute(http.MethodGet, "/file/download", DownloadHandle)
 	group.AddRoute(http.MethodDelete, "/file/delete", DeleteHandle)
 	group.AddRoute(http.MethodGet, "/file/list", FileListHandle)
+}
+
+// RegistryHandleFunc 注册路由
+func RegistryHandleFunc(group *geeweb.RouterGroup) {
+	registryFileHandler(group)
+	registryUserHandler(group)
 }
