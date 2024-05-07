@@ -136,7 +136,7 @@ func ModifyStatusHandle(c *geeweb.Context) {
 		c.String(http.StatusInternalServerError, ErrPwdError.Error())
 		return
 	}
-	if num, err := strconv.Atoi(status); err != nil {
+	if num, err := strconv.Atoi(status); err == nil {
 		info.Status = num
 	} else {
 		c.String(http.StatusBadRequest, "the value type of status is not int %v", err)
