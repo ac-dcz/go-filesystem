@@ -86,8 +86,10 @@ func SignInHandle(c *geeweb.Context) {
 	}
 
 	token := createToken(name, pwd)
-	cookie := http.Cookie{Name: name, Value: token, Expires: time.Now().Add(time.Second * 60)}
-	http.SetCookie(c.W, &cookie)
+	info_cookie := http.Cookie{Name: "userinfo", Value: fmt.Sprintf("%s-%s", name, pwd), Expires: time.Now().Add(time.Second * 60)}
+	token_cookie := http.Cookie{Name: "token", Value: token, Expires: time.Now().Add(time.Second * 60)}
+	http.SetCookie(c.W, &token_cookie)
+	http.SetCookie(c.W, &info_cookie)
 }
 
 // SignOutHandle: post /user/signout 用户退出
