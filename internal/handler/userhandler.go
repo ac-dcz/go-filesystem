@@ -74,6 +74,7 @@ func SignInHandle(c *geeweb.Context) {
 		return
 	} else if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 	if info.PassWD != pwd {
 		c.String(http.StatusInternalServerError, ErrPwdError.Error())
@@ -90,6 +91,7 @@ func SignInHandle(c *geeweb.Context) {
 	token_cookie := http.Cookie{Name: "token", Value: token, Expires: time.Now().Add(time.Second * 60)}
 	http.SetCookie(c.W, &token_cookie)
 	http.SetCookie(c.W, &info_cookie)
+	c.String(http.StatusOK, "Successfully SignIn")
 }
 
 // SignOutHandle: post /user/signout 用户退出

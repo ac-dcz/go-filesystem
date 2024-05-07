@@ -76,8 +76,11 @@ func (c *Context) HTML(code int, html string) {
 	c.W.Write([]byte(html))
 }
 
-func (c *Context) Next() {
-	for c.Index++; c.Index < len(c.MiddleWares); c.Index++ {
+func (c *Context) Next() bool {
+	c.Index++
+	if c.Index < len(c.MiddleWares) {
 		c.MiddleWares[c.Index](c)
+		return true
 	}
+	return false
 }
